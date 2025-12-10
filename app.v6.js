@@ -359,110 +359,176 @@ document.addEventListener('DOMContentLoaded', () => {
   // -----------------------------------
   // KEYBOARD HANDLING: TAB + INDENT + AUTOCOMPLETE
   // -----------------------------------
-  codeEditor.addEventListener('keydown', (e) => {
-    const start = codeEditor.selectionStart;
-    const end = codeEditor.selectionEnd;
-    const value = codeEditor.value;
+ codeEditor.addEventListener('keydown', (e) => {
+  const start = codeEditor.selectionStart;
+  const end = codeEditor.selectionEnd;
+  const value = codeEditor.value;
 
-    // Accept autocomplete with Enter or Tab if box visible
-    if (
-      (e.key === 'Enter' || e.key === 'Tab') &&
-      autocompleteBox &&
-      autocompleteBox.style.display === 'block'
-    ) {
-      const accepted = acceptAutocomplete();
-      if (accepted) {
-        e.preventDefault();
-        return;
+  // Accept autocomplete with Enter or Tab if box visible
+  if (
+    (e.key === 'Enter' || e.key === 'Tab') &&
+    autocompleteBox &&
+    autocompleteBox.style.display === 'block'
+  ) {
+    const accepted = acceptAutocomplete();
+    if (accepted) {
+      e.preventDefault();
+      return;
+    }
+  }
+
+  // TAB: insert indentation
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const insert = '  '; // 2 spaces
+    codeEditor.value =
+      value.slice(0, start) + insert + value.slice(end);
+    codeEditor.selectionStart = codeEditor.selectionEnd =
+      start + insert.length;
+    onInput();
+    return;
+  }
+
+  // ENTER: auto indentation
+  if (e.key === 'Enter') {
+    e.preventDefault();
+
+    // Find current line boundaries
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    const lineEnd = value.indexOf('\n', start);
+    const currentLine =
+      lineEnd === -1 ? value.slice(lineStart) : value.slice(lineStart, lineEnd);
+
+    // Extract existing indentation
+    const indentMatch = currentLine.match(/^[ \t]*/);
+    let indent = indentMatch ? indentMatch[0] : '';
+
+    // Get trimmed line for keyword checking
+    const trimmed = currentLine.trim();
+    const trimmedUpper = trimmed.toUpperCase();
+
+    // Keywords that should DECREASE indent on the CURRENT line (closing keywords)
+    const closingKeywords = [
+      'ΤΕΛΟΣ',
+      'ΕΑΝ-ΤΕΛΟΣ',
+      'ΓΙΑ-ΤΕΛΟΣ',
+      'ΕΝΟΣΩ-ΤΕΛΟΣ',
+      'ΤΕΛΟΣ-ΔΙΑΔΙΚΑΣΙΑΣ',
+      'ΤΕΛΟΣ-ΣΥΝΑΡΤΗΣΗΣ',
+      'END',
+      'ENDIF',
+      'ENDFOR',
+      'ENDWHILE',
+      'END_IF',
+      'END_FOR',
+      'END_WHILE',
+      'ENDPROCEDURE',
+      'ENDFUNCTION',
+      'END_PROCEDURE',
+      'END_FUNCTION',
+      'ΑΛΛΙΩΣ', // ELSE should dedent from THEN level
+      'ELSE'
+    ];
+
+    // Check if current line is a closing keyword - if so, reduce indent for NEW line
+    let isClosingLine = false;
+    for (const kw of closingKeywords) {
+      if (trimmedUpper === kw || trimmedUpper.startsWith(kw + ' ') || trimmedUpper.startsWith(kw + ';')) {
+        isClosingLine = true;
+        // Reduce indent if possible
+        if (indent.length >= 2) {
+          indent = indent.slice(0, indent.length - 2);
+        }
+        break;
       }
     }
 
-    // TAB: insert indentation
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const insert = '  '; // 2 spaces
-      codeEditor.value =
-        value.slice(0, start) + insert + value.slice(end);
-      codeEditor.selectionStart = codeEditor.selectionEnd =
-        start + insert.length;
-      onInput();
-      return;
+    // Keywords that should INCREASE indent for the NEXT line (opening keywords)
+    // Check if current line ENDS with an opening keyword
+    const openingKeywords = [
+      'ΑΡΧΗ',
+      'ΤΟΤΕ',
+      'ΑΛΛΙΩΣ',
+      'ΕΠΑΝΑΛΑΒΕ',
+      'BEGIN',
+      'THEN',
+      'ELSE',
+      'REPEAT'
+    ];
+
+    let shouldIndent = false;
+    
+    // Check if line ends with opening keyword (with optional semicolon/whitespace)
+    for (const kw of openingKeywords) {
+      // Match keyword at end of line, optionally followed by semicolon and/or whitespace
+      const pattern = new RegExp(`\\b${kw}\\b\\s*;?\\s*$`, 'i');
+      if (pattern.test(currentLine)) {
+        shouldIndent = true;
+        break;
+      }
     }
 
-    // ENTER: auto indentation
-    if (e.key === 'Enter') {
-      e.preventDefault();
+    // Also check for ΓΙΑ/FOR and ΕΝΟΣΩ/WHILE which should be followed by ΕΠΑΝΑΛΑΒΕ/REPEAT
+    // These typically appear as: ΓΙΑ I:=1 ΕΩΣ 10 ΕΠΑΝΑΛΑΒΕ
+    if (!shouldIndent) {
+      const loopPattern = /\b(ΓΙΑ|FOR|ΕΝΟΣΩ|WHILE)\b/i;
+      if (loopPattern.test(currentLine) && /\b(ΕΠΑΝΑΛΑΒΕ|REPEAT)\b\s*;?\s*$/i.test(currentLine)) {
+        shouldIndent = true;
+      }
+    }
 
-      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-      const lineEnd = value.indexOf('\n', start);
-      const currentLine =
-        lineEnd === -1 ? value.slice(lineStart) : value.slice(lineStart, lineEnd);
-
-      const indentMatch = currentLine.match(/^[ \t]*/);
-      let indent = indentMatch ? indentMatch[0] : '';
-
-      const trimmed = currentLine.trim().toUpperCase();
-
-      const closingKeywords = [
-        'ΤΕΛΟΣ',
-        'ΕΑΝ-ΤΕΛΟΣ',
-        'ΓΙΑ-ΤΕΛΟΣ',
-        'ΕΝΟΣΩ-ΤΕΛΟΣ',
-        'END',
-        'ENDIF',
-        'ENDFOR',
-        'ENDWHILE'
-      ];
-      if (closingKeywords.some((kw) => trimmed.startsWith(kw)) && indent.length >= 2) {
+    // Check for ΜΕΧΡΙ (until) which appears in REPEAT loops
+    if (!shouldIndent && /\b(ΜΕΧΡΙ|UNTIL)\b\s*$/i.test(currentLine)) {
+      // ΜΕΧΡΙ ends a REPEAT block, so dedent
+      if (indent.length >= 2) {
         indent = indent.slice(0, indent.length - 2);
       }
-
-      if (
-        /\b(ΑΡΧΗ|ΤΟΤΕ|ΑΛΛΙΩΣ|ΓΙΑ|ΕΝΟΣΩ|ΜΕΧΡΙ|BEGIN|THEN|ELSE|FOR|WHILE|REPEAT)\b\s*$/i.test(
-          currentLine
-        )
-      ) {
-        indent += '  ';
-      }
-
-      const insert = '\n' + indent;
-      codeEditor.value =
-        value.slice(0, start) + insert + value.slice(end);
-
-      const newPos = start + insert.length;
-      codeEditor.selectionStart = codeEditor.selectionEnd = newPos;
-
-      onInput();
-      return;
     }
 
-    // Navigate autocomplete
-    if (
-      autocompleteBox &&
-      autocompleteBox.style.display === 'block' &&
-      (e.key === 'ArrowDown' || e.key === 'ArrowUp')
-    ) {
-      e.preventDefault();
-      const items = Array.from(
-        autocompleteBox.querySelectorAll('.autocomplete-item')
-      );
-      if (!items.length) return;
-      let idx = items.findIndex((it) => it.classList.contains('selected'));
-      if (idx === -1) idx = 0;
-      items[idx].classList.remove('selected');
-      if (e.key === 'ArrowDown') {
-        idx = (idx + 1) % items.length;
-      } else {
-        idx = (idx - 1 + items.length) % items.length;
-      }
-      items[idx].classList.add('selected');
-      return;
+    // Apply indentation increase if needed
+    if (shouldIndent) {
+      indent += '  ';
     }
 
-    if (e.key === 'Escape') {
-      hideAutocomplete();
+    // Insert newline with calculated indent
+    const insert = '\n' + indent;
+    codeEditor.value =
+      value.slice(0, start) + insert + value.slice(end);
+
+    const newPos = start + insert.length;
+    codeEditor.selectionStart = codeEditor.selectionEnd = newPos;
+
+    onInput();
+    return;
+  }
+
+  // Navigate autocomplete with arrows
+  if (
+    autocompleteBox &&
+    autocompleteBox.style.display === 'block' &&
+    (e.key === 'ArrowDown' || e.key === 'ArrowUp')
+  ) {
+    e.preventDefault();
+    const items = Array.from(
+      autocompleteBox.querySelectorAll('.autocomplete-item')
+    );
+    if (!items.length) return;
+    let idx = items.findIndex((it) => it.classList.contains('selected'));
+    if (idx === -1) idx = 0;
+    items[idx].classList.remove('selected');
+    if (e.key === 'ArrowDown') {
+      idx = (idx + 1) % items.length;
+    } else {
+      idx = (idx - 1 + items.length) % items.length;
     }
-  });
+    items[idx].classList.add('selected');
+    return;
+  }
+
+  if (e.key === 'Escape') {
+    hideAutocomplete();
+  }
+});
 
   codeEditor.addEventListener('input', () => {
     onInput();
