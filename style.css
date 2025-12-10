@@ -191,6 +191,40 @@ pre code {
     color: transparent;
 }
 
+/* Autocomplete dropdown */
+.autocomplete-box {
+  position: absolute;
+  background-color: var(--panel-bg);
+  color: var(--editor-text);
+  border: 1px solid var(--panel-header-border);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 20;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  min-width: 180px;
+}
+
+.autocomplete-item {
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.autocomplete-item.selected,
+.autocomplete-item:hover {
+  background-color: var(--button-bg);
+  color: #fff;
+}
+
+/* Syntax help button container */
+.syntax-help {
+  padding: 0.25rem 0.75rem 0.5rem 0.75rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+
 /* Terminal Styles */
 #terminal-window {
     flex: 1;

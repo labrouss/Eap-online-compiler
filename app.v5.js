@@ -113,6 +113,94 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+     // -----------------------------------
+     // AUTOCOMPLETE CONFIG
+     // -----------------------------------
+     const AUTOCOMPLETE_KEYWORDS = [
+       'ΑΛΓΟΡΙΘΜΟΣ', 'ΣΤΑΘΕΡΕΣ', 'ΔΕΔΟΜΕΝΑ', 'ΑΡΧΗ', 'ΤΕΛΟΣ',
+       'ΕΑΝ', 'ΤΟΤΕ', 'ΑΛΛΙΩΣ', 'ΕΑΝ-ΤΕΛΟΣ',
+       'ΓΙΑ', 'ΕΩΣ', 'ΜΕ', 'ΒΗΜΑ', 'ΓΙΑ-ΤΕΛΟΣ',
+       'ΕΝΟΣΩ', 'ΕΝΟΣΩ-ΤΕΛΟΣ', 'ΜΕΧΡΙ',
+       'ΤΥΠΩΣΕ', 'ΔΙΑΒΑΣΕ',
+       'ΔΙΑΔΙΚΑΣΙΑ', 'ΤΕΛΟΣ-ΔΙΑΔΙΚΑΣΙΑΣ',
+       'ΣΥΝΑΡΤΗΣΗ', 'ΤΕΛΟΣ-ΣΥΝΑΡΤΗΣΗΣ',
+       'ΑΚΕΡΑΙΟΣ', 'ΠΡΑΓΜΑΤΙΚΟΣ', 'ΛΟΓΙΚΟΣ', 'ΧΑΡΑΚΤΗΡΑΣ', 'ΣΥΜΒΟΛΟΣΕΙΡΑ',
+       'ALGORITHM', 'CONSTANTS', 'DATA', 'BEGIN', 'END',
+       'IF', 'THEN', 'ELSE', 'ENDIF',
+       'FOR', 'TO', 'STEP', 'ENDFOR',
+       'WHILE', 'ENDWHILE',
+       'REPEAT', 'UNTIL',
+       'PRINT', 'READ',
+       'PROCEDURE', 'ENDPROCEDURE',
+       'FUNCTION', 'ENDFUNCTION',
+       'INTEGER', 'REAL', 'BOOLEAN', 'CHAR', 'STRING'
+     ];
+const autocompleteBox = document.getElementById('autocomplete-box');
+const syntaxHelpButton = document.getElementById('syntax-help-button');
+
+   function getCurrentWord(text, pos) {
+     const left = text.slice(0, pos);
+     const match = left.match(/([A-Za-zΑ-Ωα-ω]+)$/u);
+     return match ? match[1] : '';
+   }
+   
+   function showAutocomplete(prefix) {
+     if (!prefix || prefix.length < 2) {
+       autocompleteBox.style.display = 'none';
+       return;
+     }
+     const upper = prefix.toUpperCase();
+     const matches = AUTOCOMPLETE_KEYWORDS.filter(k => k.startsWith(upper));
+     if (!matches.length) {
+       autocompleteBox.style.display = 'none';
+       return;
+     }
+   
+     autocompleteBox.innerHTML = matches
+       .map((m, i) =>
+         `<div class="autocomplete-item${i === 0 ? ' selected' : ''}">${m}</div>`
+       )
+       .join('');
+   
+     const rect = codeEditor.getBoundingClientRect();
+     const textUpToCursor = codeEditor.value.slice(0, codeEditor.selectionStart);
+     const lineIndex = textUpToCursor.split('\n').length - 1;
+     const lineHeight = 18;
+   
+     autocompleteBox.style.left = rect.left + window.scrollX + 60 + 'px';
+     autocompleteBox.style.top =
+       rect.top + window.scrollY + 10 + lineIndex * lineHeight + 'px';
+     autocompleteBox.style.display = 'block';
+   }
+   
+   function hideAutocomplete() {
+     autocompleteBox.style.display = 'none';
+   }
+   
+   function acceptAutocomplete() {
+     if (autocompleteBox.style.display === 'none') return false;
+     const selected = autocompleteBox.querySelector('.autocomplete-item.selected');
+     if (!selected) return false;
+     const word = getCurrentWord(codeEditor.value, codeEditor.selectionStart);
+     if (!word) return false;
+   
+     const start = codeEditor.selectionStart - word.length;
+     const end = codeEditor.selectionEnd;
+     const insert = selected.textContent;
+   
+     codeEditor.value =
+       codeEditor.value.slice(0, start) +
+       insert +
+       codeEditor.value.slice(end);
+   
+     const newPos = start + insert.length;
+     codeEditor.selectionStart = codeEditor.selectionEnd = newPos;
+     hideAutocomplete();
+     onInput();
+     return true;
+   }
+   
+
     // -----------------------------------
     // SYNTAX HIGHLIGHTING
     // -----------------------------------
@@ -223,11 +311,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const onInput = () => {
-        updateHighlighting();
-        updateLineNumbers();
-    };
+    updateHighlighting();
+    updateLineNumbers();
+     };
 
-    codeEditor.addEventListener('input', onInput);
+    codeEditor.addEventListener('input', () => {
+      onInput();
+      const word = getCurrentWord(codeEditor.value, codeEditor.selectionStart);
+      showAutocomplete(word);
+    });
+    
+	codeEditor.addEventListener('blur', hideAutocomplete);
     codeEditor.addEventListener('scroll', syncScroll);
 
     // Initial update
@@ -235,16 +329,121 @@ document.addEventListener('DOMContentLoaded', () => {
     updateHighlighting();
 
     // Enable Tab key support
-    codeEditor.addEventListener('keydown', (e) => {
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            const start = codeEditor.selectionStart;
-            const end = codeEditor.selectionEnd;
-            codeEditor.value = codeEditor.value.substring(0, start) + "\t" + codeEditor.value.substring(end);
-            codeEditor.selectionStart = codeEditor.selectionEnd = start + 1;
-            onInput();
-        }
-    });
+    //codeEditor.addEventListener('keydown', (e) => {
+    //    if (e.key === 'Tab') {
+    //        e.preventDefault();
+    //        const start = codeEditor.selectionStart;
+    //        const end = codeEditor.selectionEnd;
+    //        codeEditor.value = codeEditor.value.substring(0, start) + "\t" + codeEditor.value.substring(end);
+    //        codeEditor.selectionStart = codeEditor.selectionEnd = start + 1;
+    //        onInput();
+    //    }
+    //});
+   codeEditor.addEventListener('keydown', (e) => {
+     const start = codeEditor.selectionStart;
+     const end = codeEditor.selectionEnd;
+     const value = codeEditor.value;
+   
+     // Accept autocomplete with Enter or Tab
+     if ((e.key === 'Enter' || e.key === 'Tab') &&
+         autocompleteBox.style.display === 'block') {
+       const accepted = acceptAutocomplete();
+       if (accepted) {
+         e.preventDefault();
+         return;
+       }
+     }
+   
+     // TAB = indent
+     if (e.key === 'Tab') {
+       e.preventDefault();
+       const insert = '  '; // 2 spaces; change to '\t' if you prefer
+       codeEditor.value =
+         value.slice(0, start) + insert + value.slice(end);
+       codeEditor.selectionStart = codeEditor.selectionEnd =
+         start + insert.length;
+       onInput();
+       return;
+     }
+   
+     // ENTER = auto-indent
+  // ENTER: auto indentation
+  if (e.key === 'Enter') {
+    e.preventDefault();
+
+    // Find current line start/end
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    const lineEnd = value.indexOf('\n', start);
+    const currentLine =
+      lineEnd === -1 ? value.slice(lineStart) : value.slice(lineStart, lineEnd);
+
+    // Existing indentation (spaces/tabs at the very start of the line)
+    const indentMatch = currentLine.match(/^[ \t]*/);
+    let indent = indentMatch ? indentMatch[0] : '';
+
+    // If current line closes a block, reduce indent on the new line
+    // Greek: ΤΕΛΟΣ, ΕΑΝ-ΤΕΛΟΣ, ΓΙΑ-ΤΕΛΟΣ, ΕΝΟΣΩ-ΤΕΛΟΣ
+    // English: END, ENDIF, ENDFOR, ENDWHILE
+    const trimmed = currentLine.trim().toUpperCase();
+    const closingKeywords = [
+      'ΤΕΛΟΣ',
+      'ΕΑΝ-ΤΕΛΟΣ',
+      'ΓΙΑ-ΤΕΛΟΣ',
+      'ΕΝΟΣΩ-ΤΕΛΟΣ',
+      'END',
+      'ENDIF',
+      'ENDFOR',
+      'ENDWHILE'
+    ];
+    if (closingKeywords.some(kw => trimmed.startsWith(kw)) && indent.length >= 2) {
+      indent = indent.slice(0, indent.length - 2);
+    }
+
+    // If current line starts a block, increase indent for the next line
+    // Greek: ΑΡΧΗ, ΤΟΤΕ, ΑΛΛΙΩΣ, ΓΙΑ, ΕΝΟΣΩ, ΜΕΧΡΙ
+    // English: BEGIN, THEN, ELSE, FOR, WHILE, REPEAT
+    if (/\b(ΑΡΧΗ|ΤΟΤΕ|ΑΛΛΙΩΣ|ΓΙΑ|ΕΝΟΣΩ|ΜΕΧΡΙ|BEGIN|THEN|ELSE|FOR|WHILE|REPEAT)\b\s*$/i
+      .test(currentLine)) {
+      indent += '  ';
+    }
+
+    const insert = '\n' + indent;
+    codeEditor.value =
+      value.slice(0, start) + insert + value.slice(end);
+
+    const newPos = start + insert.length;
+    codeEditor.selectionStart = codeEditor.selectionEnd = newPos;
+
+    onInput();
+    return;
+  }
+   
+     // Navigate autocomplete with arrows
+     if (autocompleteBox.style.display === 'block' &&
+         (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+       e.preventDefault();
+       const items = Array.from(
+         autocompleteBox.querySelectorAll('.autocomplete-item')
+       );
+       if (!items.length) return;
+       let idx = items.findIndex(it => it.classList.contains('selected'));
+       if (idx === -1) idx = 0;
+       items[idx].classList.remove('selected');
+       if (e.key === 'ArrowDown') {
+         idx = (idx + 1) % items.length;
+       } else {
+         idx = (idx - 1 + items.length) % items.length;
+       }
+       items[idx].classList.add('selected');
+       return;
+     }
+   
+     // Escape hides autocomplete
+     if (e.key === 'Escape') {
+       hideAutocomplete();
+     }
+   });
+   
 
     // Example Selector
     exampleSelector.addEventListener('change', (e) => {
@@ -487,4 +686,20 @@ document.addEventListener('DOMContentLoaded', () => {
             SettingsManager.set('terminalExpandedHeight', preferredHeight);
         }
     });
+	
+	if (syntaxHelpButton) {
+  syntaxHelpButton.addEventListener('click', () => {
+    const msg =
+      'Βασικές λέξεις-κλειδιά:\n' +
+      'ΑΛΓΟΡΙΘΜΟΣ ... ΤΕΛΟΣ\n' +
+      'ΣΤΑΘΕΡΕΣ, ΔΕΔΟΜΕΝΑ για δηλώσεις.\n' +
+      'ΕΑΝ <συνθήκη> ΤΟΤΕ ... ΑΛΛΙΩΣ ... ΕΑΝ-ΤΕΛΟΣ\n' +
+      'ΓΙΑ / ΕΩΣ / ΜΕ ΒΗΜΑ ... ΓΙΑ-ΤΕΛΟΣ\n' +
+      'ΕΝΟΣΩ ... ΕΝΟΣΩ-ΤΕΛΟΣ, ΜΕΧΡΙ ...\n\n' +
+      'Τύποι: ΑΚΕΡΑΙΟΣ, ΠΡΑΓΜΑΤΙΚΟΣ, ΛΟΓΙΚΟΣ, ΧΑΡΑΚΤΗΡΑΣ, ΣΥΜΒΟΛΟΣΕΙΡΑ.\n\n' +
+      'Οι αγγλικές λέξεις-κλειδιά ALGORITHM, BEGIN, END κ.λπ. υποστηρίζονται επίσης.';
+    alert(msg);
+  });
+}
+
 });
