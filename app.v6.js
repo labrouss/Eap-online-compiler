@@ -755,6 +755,50 @@ document.head.appendChild(style);
     }
   });
 
+  // --- FORMAT BUTTON: same behavior as Ctrl+Shift+F ---
+const formatButton = document.getElementById('format-button');
+if (formatButton) {
+  formatButton.addEventListener('click', () => {
+    try {
+      // Save approximate cursor position
+      const cursorPos = codeEditor.selectionStart;
+
+      // Format code using the same function used by keyboard handler
+      const formatted = autoFormatCode();
+      codeEditor.value = formatted;
+
+      // Restore cursor (approximate)
+      const newPos = Math.min(cursorPos, formatted.length);
+      codeEditor.selectionStart = codeEditor.selectionEnd = newPos;
+
+      // Refresh highlighting / lines
+      onInput();
+
+      // Optional: show same notification used by keyboard handler
+      const notification = document.createElement('div');
+      notification.textContent = '✓ Code formatted!';
+      notification.style.cssText = `
+        position: fixed;
+        top: 70px;
+        right: 20px;
+        background: var(--button-bg);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        font-weight: bold;
+        z-index: 1000;
+        animation: slideIn 0.25s ease-out;
+      `;
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 1600);
+    } catch (err) {
+      // Defensive: if something unexpectedly missing, log it
+      console.error('Format button failed:', err);
+      alert('Formatting failed — open console for details.');
+    }
+  });
+}
+
     // -----------------------------------
     // LOAD (.eap) FILE
     // -----------------------------------
