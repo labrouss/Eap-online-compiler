@@ -792,7 +792,7 @@ document.head.appendChild(style);
     const theme = isDark ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', theme);
     document.body.setAttribute('data-theme', theme);
-    themeToggle.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+    themeToggle.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
     SettingsManager.set('theme', theme);
 
     const url = new URL(window.location);
