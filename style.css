@@ -260,6 +260,16 @@ button:hover { background-color: var(--button-hover); transform: translateY(-1px
 #save-button, #clear-button { background-color: var(--panel-header-border); color: var(--bg-color); }
 #save-button:hover, #clear-button:hover { background-color: var(--text-color); }
 
+#load-button, #clear-button { background-color: var(--panel-header-border); color: var(--bg-color); }
+#load-button:hover, #clear-button:hover { background-color: var(--text-color); }
+
+#format-button, #clear-button { background-color: var(--panel-header-border); color: var(--bg-color); }
+#format-button:hover, #clear-button:hover { background-color: var(--text-color); }
+
+#syntax-help-button, #clear-button { background-color: var(--panel-header-border); color: var(--bg-color); }
+#syntax-help-button:hover, #clear-button:hover { background-color: var(--text-color); }
+
+
 /* Syntax Highlighting Tokens */
 .token-keyword { color: var(--token-keyword); font-weight: bold; }
 .token-builtin { color: var(--token-builtin); }

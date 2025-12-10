@@ -359,10 +359,128 @@ document.addEventListener('DOMContentLoaded', () => {
   // -----------------------------------
   // KEYBOARD HANDLING: TAB + INDENT + AUTOCOMPLETE
   // -----------------------------------
- codeEditor.addEventListener('keydown', (e) => {
+ // AUTO-INDENTATION + AUTO-FORMAT HANDLER
+// Replace the entire keydown event listener in app.v6.js
+
+// Auto-format function
+function autoFormatCode() {
+  const code = codeEditor.value;
+  const lines = code.split('\n');
+  const formatted = [];
+  let currentIndent = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    const trimmedUpper = trimmed.toUpperCase();
+
+    // Skip empty lines
+    if (trimmed === '') {
+      formatted.push('');
+      continue;
+    }
+
+    // Closing keywords: decrease indent BEFORE adding line
+    const isClosing = 
+      trimmedUpper.startsWith('ΤΕΛΟΣ') ||
+      trimmedUpper.startsWith('ΕΑΝ-ΤΕΛΟΣ') ||
+      trimmedUpper.startsWith('ΓΙΑ-ΤΕΛΟΣ') ||
+      trimmedUpper.startsWith('ΕΝΟΣΩ-ΤΕΛΟΣ') ||
+      trimmedUpper.startsWith('ΤΕΛΟΣ-ΔΙΑΔΙΚΑΣΙΑΣ') ||
+      trimmedUpper.startsWith('ΤΕΛΟΣ-ΣΥΝΑΡΤΗΣΗΣ') ||
+      trimmedUpper.startsWith('END') ||
+      trimmedUpper.startsWith('ENDIF') ||
+      trimmedUpper.startsWith('ENDFOR') ||
+      trimmedUpper.startsWith('ENDWHILE') ||
+      trimmedUpper.startsWith('END_IF') ||
+      trimmedUpper.startsWith('END_FOR') ||
+      trimmedUpper.startsWith('END_WHILE') ||
+      trimmedUpper.startsWith('ENDPROCEDURE') ||
+      trimmedUpper.startsWith('ENDFUNCTION') ||
+      trimmedUpper.startsWith('END_PROCEDURE') ||
+      trimmedUpper.startsWith('END_FUNCTION') ||
+      trimmedUpper.startsWith('ΜΕΧΡΙ') ||
+      trimmedUpper.startsWith('UNTIL');
+
+    // ΑΛΛΙΩΣ/ELSE: decrease then add line
+    const isElse = 
+      trimmedUpper.startsWith('ΑΛΛΙΩΣ') ||
+      trimmedUpper.startsWith('ELSE');
+
+    if (isClosing && currentIndent > 0) {
+      currentIndent--;
+    }
+
+    if (isElse && currentIndent > 0) {
+      currentIndent--;
+    }
+
+    // Add line with current indentation
+    const indent = '  '.repeat(currentIndent);
+    formatted.push(indent + trimmed);
+
+    // Opening keywords: increase indent AFTER adding line
+    const shouldIncrease = 
+      trimmedUpper.endsWith('ΑΡΧΗ') ||
+      trimmedUpper.endsWith('ΤΟΤΕ') ||
+      trimmedUpper.endsWith('ΑΛΛΙΩΣ') ||
+      trimmedUpper.endsWith('ΕΠΑΝΑΛΑΒΕ') ||
+      trimmedUpper.endsWith('BEGIN') ||
+      trimmedUpper.endsWith('THEN') ||
+      trimmedUpper.endsWith('ELSE') ||
+      trimmedUpper.endsWith('REPEAT');
+
+    if (shouldIncrease) {
+      currentIndent++;
+    }
+  }
+
+  return formatted.join('\n');
+}
+
+codeEditor.addEventListener('keydown', (e) => {
   const start = codeEditor.selectionStart;
   const end = codeEditor.selectionEnd;
   const value = codeEditor.value;
+
+  // AUTO-FORMAT: Ctrl+Shift+F (or Cmd+Shift+F on Mac)
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
+    e.preventDefault();
+    
+    // Store cursor position
+    const cursorPos = codeEditor.selectionStart;
+    
+    // Format code
+    const formatted = autoFormatCode();
+    codeEditor.value = formatted;
+    
+    // Restore cursor position (approximately)
+    codeEditor.selectionStart = Math.min(cursorPos, formatted.length);
+    codeEditor.selectionEnd = codeEditor.selectionStart;
+    
+    // Update UI
+    onInput();
+    
+    // Show notification (optional)
+    const notification = document.createElement('div');
+    notification.textContent = '✓ Code formatted!';
+    notification.style.cssText = `
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      background: var(--button-bg);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 4px;
+      font-weight: bold;
+      z-index: 1000;
+      animation: slideIn 0.3s ease-out;
+    `;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 2000);
+    
+    return;
+  }
 
   // Accept autocomplete with Enter or Tab if box visible
   if (
@@ -381,10 +499,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (e.key === 'Tab') {
     e.preventDefault();
     const insert = '  '; // 2 spaces
-    codeEditor.value =
-      value.slice(0, start) + insert + value.slice(end);
-    codeEditor.selectionStart = codeEditor.selectionEnd =
-      start + insert.length;
+    codeEditor.value = value.slice(0, start) + insert + value.slice(end);
+    codeEditor.selectionStart = codeEditor.selectionEnd = start + insert.length;
     onInput();
     return;
   }
@@ -393,110 +509,70 @@ document.addEventListener('DOMContentLoaded', () => {
   if (e.key === 'Enter') {
     e.preventDefault();
 
-    // Find current line boundaries
-    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-    const lineEnd = value.indexOf('\n', start);
-    const currentLine =
-      lineEnd === -1 ? value.slice(lineStart) : value.slice(lineStart, lineEnd);
+    // Find the start of the current line
+    let lineStart = start;
+    while (lineStart > 0 && value[lineStart - 1] !== '\n') {
+      lineStart--;
+    }
 
-    // Extract existing indentation
+    // Get the current line up to cursor
+    const currentLine = value.substring(lineStart, start);
+    
+    // Extract current indentation
     const indentMatch = currentLine.match(/^[ \t]*/);
     let indent = indentMatch ? indentMatch[0] : '';
 
-    // Get trimmed line for keyword checking
-    const trimmed = currentLine.trim();
-    const trimmedUpper = trimmed.toUpperCase();
+    // Get the trimmed, uppercase version for keyword matching
+    const trimmedLine = currentLine.trim().toUpperCase();
 
-    // Keywords that should DECREASE indent on the CURRENT line (closing keywords)
-    const closingKeywords = [
-      'ΤΕΛΟΣ',
-      'ΕΑΝ-ΤΕΛΟΣ',
-      'ΓΙΑ-ΤΕΛΟΣ',
-      'ΕΝΟΣΩ-ΤΕΛΟΣ',
-      'ΤΕΛΟΣ-ΔΙΑΔΙΚΑΣΙΑΣ',
-      'ΤΕΛΟΣ-ΣΥΝΑΡΤΗΣΗΣ',
-      'END',
-      'ENDIF',
-      'ENDFOR',
-      'ENDWHILE',
-      'END_IF',
-      'END_FOR',
-      'END_WHILE',
-      'ENDPROCEDURE',
-      'ENDFUNCTION',
-      'END_PROCEDURE',
-      'END_FUNCTION',
-      'ΑΛΛΙΩΣ', // ELSE should dedent from THEN level
-      'ELSE'
-    ];
+    // Check if line ends with keywords that increase indent
+    const shouldIncreaseIndent = 
+      trimmedLine.endsWith('ΑΡΧΗ') ||
+      trimmedLine.endsWith('ΤΟΤΕ') ||
+      trimmedLine.endsWith('ΑΛΛΙΩΣ') ||
+      trimmedLine.endsWith('ΕΠΑΝΑΛΑΒΕ') ||
+      trimmedLine.endsWith('BEGIN') ||
+      trimmedLine.endsWith('THEN') ||
+      trimmedLine.endsWith('ELSE') ||
+      trimmedLine.endsWith('REPEAT');
 
-    // Check if current line is a closing keyword - if so, reduce indent for NEW line
-    let isClosingLine = false;
-    for (const kw of closingKeywords) {
-      if (trimmedUpper === kw || trimmedUpper.startsWith(kw + ' ') || trimmedUpper.startsWith(kw + ';')) {
-        isClosingLine = true;
-        // Reduce indent if possible
-        if (indent.length >= 2) {
-          indent = indent.slice(0, indent.length - 2);
-        }
-        break;
-      }
+    // Check if line starts with closing keywords
+    const isClosingKeyword = 
+      trimmedLine.startsWith('ΤΕΛΟΣ') ||
+      trimmedLine.startsWith('ΕΑΝ-ΤΕΛΟΣ') ||
+      trimmedLine.startsWith('ΓΙΑ-ΤΕΛΟΣ') ||
+      trimmedLine.startsWith('ΕΝΟΣΩ-ΤΕΛΟΣ') ||
+      trimmedLine.startsWith('ΤΕΛΟΣ-ΔΙΑΔΙΚΑΣΙΑΣ') ||
+      trimmedLine.startsWith('ΤΕΛΟΣ-ΣΥΝΑΡΤΗΣΗΣ') ||
+      trimmedLine.startsWith('END') ||
+      trimmedLine.startsWith('ENDIF') ||
+      trimmedLine.startsWith('ENDFOR') ||
+      trimmedLine.startsWith('ENDWHILE') ||
+      trimmedLine.startsWith('END_IF') ||
+      trimmedLine.startsWith('END_FOR') ||
+      trimmedLine.startsWith('END_WHILE') ||
+      trimmedLine.startsWith('ENDPROCEDURE') ||
+      trimmedLine.startsWith('ENDFUNCTION') ||
+      trimmedLine.startsWith('END_PROCEDURE') ||
+      trimmedLine.startsWith('END_FUNCTION');
+
+    // Adjust indent for next line
+    if (isClosingKeyword && indent.length >= 2) {
+      indent = indent.substring(0, indent.length - 2);
     }
 
-    // Keywords that should INCREASE indent for the NEXT line (opening keywords)
-    // Check if current line ENDS with an opening keyword
-    const openingKeywords = [
-      'ΑΡΧΗ',
-      'ΤΟΤΕ',
-      'ΑΛΛΙΩΣ',
-      'ΕΠΑΝΑΛΑΒΕ',
-      'BEGIN',
-      'THEN',
-      'ELSE',
-      'REPEAT'
-    ];
+    if (shouldIncreaseIndent) {
+      indent = indent + '  ';
+    }
 
-    let shouldIndent = false;
+    // Insert newline with indentation
+    const insertText = '\n' + indent;
+    codeEditor.value = value.substring(0, start) + insertText + value.substring(end);
     
-    // Check if line ends with opening keyword (with optional semicolon/whitespace)
-    for (const kw of openingKeywords) {
-      // Match keyword at end of line, optionally followed by semicolon and/or whitespace
-      const pattern = new RegExp(`\\b${kw}\\b\\s*;?\\s*$`, 'i');
-      if (pattern.test(currentLine)) {
-        shouldIndent = true;
-        break;
-      }
-    }
-
-    // Also check for ΓΙΑ/FOR and ΕΝΟΣΩ/WHILE which should be followed by ΕΠΑΝΑΛΑΒΕ/REPEAT
-    // These typically appear as: ΓΙΑ I:=1 ΕΩΣ 10 ΕΠΑΝΑΛΑΒΕ
-    if (!shouldIndent) {
-      const loopPattern = /\b(ΓΙΑ|FOR|ΕΝΟΣΩ|WHILE)\b/i;
-      if (loopPattern.test(currentLine) && /\b(ΕΠΑΝΑΛΑΒΕ|REPEAT)\b\s*;?\s*$/i.test(currentLine)) {
-        shouldIndent = true;
-      }
-    }
-
-    // Check for ΜΕΧΡΙ (until) which appears in REPEAT loops
-    if (!shouldIndent && /\b(ΜΕΧΡΙ|UNTIL)\b\s*$/i.test(currentLine)) {
-      // ΜΕΧΡΙ ends a REPEAT block, so dedent
-      if (indent.length >= 2) {
-        indent = indent.slice(0, indent.length - 2);
-      }
-    }
-
-    // Apply indentation increase if needed
-    if (shouldIndent) {
-      indent += '  ';
-    }
-
-    // Insert newline with calculated indent
-    const insert = '\n' + indent;
-    codeEditor.value =
-      value.slice(0, start) + insert + value.slice(end);
-
-    const newPos = start + insert.length;
-    codeEditor.selectionStart = codeEditor.selectionEnd = newPos;
+    // Position cursor
+    const newPos = start + insertText.length;
+    codeEditor.selectionStart = newPos;
+    codeEditor.selectionEnd = newPos;
 
     onInput();
     return;
@@ -529,6 +605,22 @@ document.addEventListener('DOMContentLoaded', () => {
     hideAutocomplete();
   }
 });
+
+// Add CSS animation for notification
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+`;
+document.head.appendChild(style);
 
   codeEditor.addEventListener('input', () => {
     onInput();
