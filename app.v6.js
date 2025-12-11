@@ -802,32 +802,219 @@ if (formatButton) {
     // -----------------------------------
     // LOAD (.eap) FILE
     // -----------------------------------
-    loadButton.addEventListener('click', () => {
-      fileInput.value = ''; // reset so selecting same file again works
-      fileInput.click();
-    });
+  // Complete Windows-1253 to Unicode mapping table
+const WINDOWS_1253_MAP = {
+  // Control characters 0x00-0x7F are standard ASCII (handled by default)
+  
+  // 0x80-0x9F: Windows-1253 special characters
+  0x80: '\u20AC', // €
+  0x82: '\u201A', // ‚
+  0x83: '\u0192', // ƒ
+  0x84: '\u201E', // „
+  0x85: '\u2026', // …
+  0x86: '\u2020', // †
+  0x87: '\u2021', // ‡
+  0x89: '\u2030', // ‰
+  0x8B: '\u2039', // ‹
+  0x8C: '\u0152', // Œ
+  0x91: '\u2018', // '
+  0x92: '\u2019', // '
+  0x93: '\u201C', // "
+  0x94: '\u201D', // "
+  0x95: '\u2022', // •
+  0x96: '\u2013', // –
+  0x97: '\u2014', // —
+  0x99: '\u2122', // ™
+  0x9B: '\u203A', // ›
+  0x9C: '\u0153', // œ
+  
+  // 0xA0-0xBF: Extended Latin and Greek diacritics
+  0xA0: '\u00A0', // Non-breaking space
+  0xA1: '\u0385', // ΅ (Greek Dialytika Tonos)
+  0xA2: '\u0386', // Ά (Greek Capital Letter Alpha with Tonos)
+  0xA3: '\u00A3', // £
+  0xA4: '\u00A4', // ¤
+  0xA5: '\u00A5', // ¥
+  0xA6: '\u00A6', // ¦
+  0xA7: '\u00A7', // §
+  0xA8: '\u00A8', // ¨
+  0xA9: '\u00A9', // ©
+  0xAA: '\u037A', // ͺ
+  0xAB: '\u00AB', // «
+  0xAC: '\u00AC', // ¬
+  0xAD: '\u00AD', // Soft hyphen
+  0xAE: '\u00AE', // ®
+  0xAF: '\u2015', // ― (Horizontal bar)
+  
+  0xB0: '\u00B0', // °
+  0xB1: '\u00B1', // ±
+  0xB2: '\u00B2', // ²
+  0xB3: '\u00B3', // ³
+  0xB4: '\u0384', // ΄ (Greek Tonos)
+  0xB5: '\u00B5', // µ
+  0xB6: '\u00B6', // ¶
+  0xB7: '\u00B7', // ·
+  0xB8: '\u0388', // Έ (Greek Capital Letter Epsilon with Tonos)
+  0xB9: '\u0389', // Ή (Greek Capital Letter Eta with Tonos)
+  0xBA: '\u038A', // Ί (Greek Capital Letter Iota with Tonos)
+  0xBB: '\u00BB', // »
+  0xBC: '\u038C', // Ό (Greek Capital Letter Omicron with Tonos)
+  0xBD: '\u00BD', // ½
+  0xBE: '\u038E', // Ύ (Greek Capital Letter Upsilon with Tonos)
+  0xBF: '\u038F', // Ώ (Greek Capital Letter Omega with Tonos)
+  
+  // 0xC0-0xDF: Greek uppercase letters
+  0xC0: '\u0390', // ΐ (Greek Small Letter Iota with Dialytika and Tonos)
+  0xC1: '\u0391', // Α (Alpha)
+  0xC2: '\u0392', // Β (Beta)
+  0xC3: '\u0393', // Γ (Gamma)
+  0xC4: '\u0394', // Δ (Delta)
+  0xC5: '\u0395', // Ε (Epsilon)
+  0xC6: '\u0396', // Ζ (Zeta)
+  0xC7: '\u0397', // Η (Eta)
+  0xC8: '\u0398', // Θ (Theta)
+  0xC9: '\u0399', // Ι (Iota)
+  0xCA: '\u039A', // Κ (Kappa)
+  0xCB: '\u039B', // Λ (Lambda)
+  0xCC: '\u039C', // Μ (Mu)
+  0xCD: '\u039D', // Ν (Nu)
+  0xCE: '\u039E', // Ξ (Xi)
+  0xCF: '\u039F', // Ο (Omicron)
+  
+  0xD0: '\u03A0', // Π (Pi)
+  0xD1: '\u03A1', // Ρ (Rho)
+  0xD3: '\u03A3', // Σ (Sigma)
+  0xD4: '\u03A4', // Τ (Tau)
+  0xD5: '\u03A5', // Υ (Upsilon)
+  0xD6: '\u03A6', // Φ (Phi)
+  0xD7: '\u03A7', // Χ (Chi)
+  0xD8: '\u03A8', // Ψ (Psi)
+  0xD9: '\u03A9', // Ω (Omega)
+  0xDA: '\u03AA', // Ϊ (Greek Capital Letter Iota with Dialytika)
+  0xDB: '\u03AB', // Ϋ (Greek Capital Letter Upsilon with Dialytika)
+  0xDC: '\u03AC', // ά (Greek Small Letter Alpha with Tonos)
+  0xDD: '\u03AD', // έ (Greek Small Letter Epsilon with Tonos)
+  0xDE: '\u03AE', // ή (Greek Small Letter Eta with Tonos)
+  0xDF: '\u03AF', // ί (Greek Small Letter Iota with Tonos)
+  
+  // 0xE0-0xFF: Greek lowercase letters
+  0xE0: '\u03B0', // ΰ (Greek Small Letter Upsilon with Dialytika and Tonos)
+  0xE1: '\u03B1', // α (alpha)
+  0xE2: '\u03B2', // β (beta)
+  0xE3: '\u03B3', // γ (gamma)
+  0xE4: '\u03B4', // δ (delta)
+  0xE5: '\u03B5', // ε (epsilon)
+  0xE6: '\u03B6', // ζ (zeta)
+  0xE7: '\u03B7', // η (eta)
+  0xE8: '\u03B8', // θ (theta)
+  0xE9: '\u03B9', // ι (iota)
+  0xEA: '\u03BA', // κ (kappa)
+  0xEB: '\u03BB', // λ (lambda)
+  0xEC: '\u03BC', // μ (mu)
+  0xED: '\u03BD', // ν (nu)
+  0xEE: '\u03BE', // ξ (xi)
+  0xEF: '\u03BF', // ο (omicron)
+  
+  0xF0: '\u03C0', // π (pi)
+  0xF1: '\u03C1', // ρ (rho)
+  0xF2: '\u03C2', // ς (final sigma)
+  0xF3: '\u03C3', // σ (sigma)
+  0xF4: '\u03C4', // τ (tau)
+  0xF5: '\u03C5', // υ (upsilon)
+  0xF6: '\u03C6', // φ (phi)
+  0xF7: '\u03C7', // χ (chi)
+  0xF8: '\u03C8', // ψ (psi)
+  0xF9: '\u03C9', // ω (omega)
+  0xFA: '\u03CA', // ϊ (Greek Small Letter Iota with Dialytika)
+  0xFB: '\u03CB', // ϋ (Greek Small Letter Upsilon with Dialytika)
+  0xFC: '\u03CC', // ό (Greek Small Letter Omicron with Tonos)
+  0xFD: '\u03CD', // ύ (Greek Small Letter Upsilon with Tonos)
+  0xFE: '\u03CE', // ώ (Greek Small Letter Omega with Tonos)
+};
+
+
+function decodeWindows1253(bytes) {
+ let result = '';
+  
+  for (let i = 0; i < bytes.length; i++) {
+    const byte = bytes[i];
     
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files && fileInput.files[0];
-      if (!file) return;
-      if (!file.name.toLowerCase().endsWith('.eap') &&
-          !file.name.toLowerCase().endsWith('.txt')) {
-        alert('Παρακαλώ επιλέξτε αρχείο .eap ή .txt');
-        return;
-      }
+    // ASCII range (0x00-0x7F) - direct mapping
+    if (byte < 0x80) {
+      result += String.fromCharCode(byte);
+    }
+    // Windows-1253 extended range (0x80-0xFF)
+    else if (WINDOWS_1253_MAP[byte]) {
+      result += WINDOWS_1253_MAP[byte];
+    }
+    // Undefined bytes - use replacement character or original
+    else {
+      result += String.fromCharCode(byte);
+    }
+  }
+  
+  return result;
+}
+
+
+function tryDecodeUTF8(buffer) {
+   try {
+    const decoder = new TextDecoder('utf-8', { fatal: true });
+    return decoder.decode(buffer);
+  } catch (e) {
+    return null;
+  }
+}
+
+function containsGreekKeywords(text) {
+  const upper = text.toUpperCase();
+  return (upper.includes('ΑΛΓΟΡΙΘΜΟΣ') || upper.includes('ALGORITHM')) &&
+         (upper.includes('ΑΡΧΗ') || upper.includes('BEGIN'));
+}
+
+loadButton.addEventListener('click', () => {
+  fileInput.value = '';
+  fileInput.click();
+});
+
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files?.[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  
+  reader.onload = (e) => {
+    const buffer = e.target.result;
+    const bytes = new Uint8Array(buffer);
     
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        codeEditor.value = e.target.result || '';
-        onInput();           // refresh highlighting + line numbers
-        exampleSelector.value = '';  // clear example selection
-      };
-      reader.onerror = () => {
-        alert('Αποτυχία ανάγνωσης αρχείου.');
-      };
-      reader.readAsText(file, 'utf-8');
-    });
+    // 1. Try UTF-8 first
+    let decoded = tryDecodeUTF8(buffer);
+    if (decoded && containsGreekKeywords(decoded)) {
+      console.log('✓ Loaded as UTF-8');
+      codeEditor.value = decoded;
+      onInput();
+      exampleSelector.value = '';
+      return;
+    }
     
+    // 2. Try Windows-1253
+    decoded = decodeWindows1253(bytes);
+    if (decoded && containsGreekKeywords(decoded)) {
+      console.log('✓ Loaded as Windows-1253');
+      codeEditor.value = decoded;
+      onInput();
+      exampleSelector.value = '';
+      return;
+    }
+    
+    // 3. Failed
+    alert('Το αρχείο δεν περιέχει έγκυρο πρόγραμμα.\nΔεν βρέθηκαν ΑΛΓΟΡΙΘΜΟΣ και ΑΡΧΗ.');
+  };
+  
+  reader.onerror = () => alert('Αποτυχία ανάγνωσης αρχείου.');
+  
+  reader.readAsArrayBuffer(file);
+});
 
   // -----------------------------------
   // DARK MODE
