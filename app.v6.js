@@ -79,6 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('file-input');     // NEW
   const exampleSelector = document.getElementById('example-selector');
   const themeToggle = document.getElementById('theme-toggle');
+  // Syntax help modal
+    const triggerButton = document.getElementById('syntax-help-button');
+    const modalId = 'my-dynamic-modal'; // Unique ID for the modal container
+
 
   // Terminal Elements
   const terminalOutput = document.getElementById('terminal-output');
@@ -1108,17 +1112,193 @@ fileInput.addEventListener('change', () => {
   // -----------------------------------
   // SYNTAX HELP
   // -----------------------------------
-  if (syntaxHelpButton) {
-    syntaxHelpButton.addEventListener('click', () => {
-      const msg =
-        'Βασικές λέξεις-κλειδιά:\n' +
-        'ΑΛΓΟΡΙΘΜΟΣ ... ΤΕΛΟΣ, ΣΤΑΘΕΡΕΣ, ΔΕΔΟΜΕΝΑ, ΑΡΧΗ.\n' +
-        'ΕΑΝ <συνθήκη> ΤΟΤΕ ... ΑΛΛΙΩΣ ... ΕΑΝ-ΤΕΛΟΣ\n' +
-        'ΓΙΑ / ΕΩΣ / ΜΕ ΒΗΜΑ ... ΓΙΑ-ΤΕΛΟΣ\n' +
-        'ΕΝΟΣΩ ... ΕΝΟΣΩ-ΤΕΛΟΣ, ΜΕΧΡΙ ...\n\n' +
-        'Τύποι: ΑΚΕΡΑΙΟΣ, ΠΡΑΓΜΑΤΙΚΟΣ, ΛΟΓΙΚΟΣ, ΧΑΡΑΚΤΗΡΑΣ, ΣΥΜΒΟΛΟΣΕΙΡΑ.\n\n' +
-        'Υποστηρίζονται επίσης οι αγγλικές μορφές: ALGORITHM, BEGIN, END κ.λπ.';
-      alert(msg);
+
+
+    // Function to create the modal structure
+    function createModal(id, title, content) {
+        // 1. Create the main modal container
+        const modal = document.createElement('div');
+        modal.setAttribute('id', id);
+        modal.classList.add('modal-overlay'); // For background dimming and closing
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black background */
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; /* Ensure it's on top of other content */
+        `;
+        
+        // 2. Create the modal content box
+        const modalContent = document.createElement('div');
+        modalContent.classList.add('modal-content');
+        modalContent.style.cssText = `
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            position: relative;
+        `;
+        
+        // 3. Create the close button
+        const closeButton = document.createElement('span');
+        closeButton.classList.add('modal-close');
+        closeButton.innerHTML = '&times;'; // HTML entity for 'x'
+        closeButton.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+        `;
+        closeButton.onclick = () => {
+            modal.style.display = 'none';
+        };
+
+        // 4. Create the title
+        const modalTitle = document.createElement('h2');
+        modalTitle.textContent = title;
+
+        // 5. Create the body content
+        const modalBody = document.createElement('p');
+        modalBody.innerHTML = content; // Using innerHTML to allow for simple formatting
+
+        // 6. Assemble the pieces
+        modalContent.appendChild(closeButton);
+        modalContent.appendChild(modalTitle);
+        modalContent.appendChild(modalBody);
+        modal.appendChild(modalContent);
+
+        // 7. Add to the document body
+        document.body.appendChild(modal);
+        
+        return modal;
+    }
+
+    // Modal Configuration
+    const modalTitle = 'Συνοπτική Βοήθεια Σύνταξης Ψευδοκώδικα';
+    const modalContentHTML = `
+      <h4>1. Δηλώσεις (ΔΕΔΟΜΕΝΑ / ΣΤΑΘΕΡΕΣ)</h4>
+      <ul>
+          <li><strong>Μεταβλητές (Απλές):</strong> <code>&lt;λίστα μεταβλητών&gt; : &lt;τύπος&gt; ;</code>
+              <br>Π.χ. <code>I, J: INTEGER;</code>, <code>X : REAL;</code></li>
+          <li><strong>Πίνακες (Arrays):</strong> <code>&lt;όνομα&gt; : ARRAY [&lt;αρχή&gt;..&lt;τέλος&gt;] OF &lt;τύπος&gt; ;</code>
+              <br>Π.χ. <code>BATHMOS : ARRAY [1..20] OF REAL;</code></li>
+          <li><strong>Σταθερές:</strong> <code>ΣΤΑΘΕΡΕΣ &lt;όνομα&gt; = &lt;τιμή&gt;</code>
+              <br>Π.χ. <code>MAX_DAYS = 31</code></li>
+      </ul>
+      
+      <h5 style="margin-top: 20px;">Επεξήγηση Τύπων Μεταβλητών:</h5>
+      <table border="1" style="width: 100%; border-collapse: collapse; font-size: 0.9em; margin-bottom: 20px;">
+          <thead>
+              <tr style="background-color: #f2f2f2;">
+                  <th style="padding: 8px;">Τύπος</th>
+                  <th style="padding: 8px;">Περιγραφή</th>
+                  <th style="padding: 8px;">Παράδειγμα</th>
+              </tr>
+          </thead>
+          <tbody>
+              <tr>
+                  <td style="padding: 8px;"><strong>INTEGER</strong></td>
+                  <td style="padding: 8px;">Ακέραιες τιμές.</td>
+                  <td style="padding: 8px;"><code>I : INTEGER;</code></td>
+              </tr>
+              <tr>
+                  <td style="padding: 8px;"><strong>REAL</strong></td>
+                  <td style="padding: 8px;">Πραγματικές/Δεκαδικές τιμές.</td>
+                  <td style="padding: 8px;"><code>ΒΑΘΜΟΣ : REAL;</code></td>
+              </tr>
+              <tr>
+                  <td style="padding: 8px;"><strong>BOOLEAN</strong></td>
+                  <td style="padding: 8px;">Λογικές τιμές (TRUE / FALSE).</td>
+                  <td style="padding: 8px;"><code>FLAG : BOOLEAN;</code></td>
+              </tr>
+              <tr>
+                  <td style="padding: 8px;"><strong>CHAR</strong></td>
+                  <td style="padding: 8px;">Ένας μοναδικός χαρακτήρας.</td>
+                  <td style="padding: 8px;"><code>KEY : CHAR;</code></td>
+              </tr>
+              <tr>
+                  <td style="padding: 8px;"><strong>STRING</strong></td>
+                  <td style="padding: 8px;">Ακολουθία χαρακτήρων (κειμένου).</td>
+                  <td style="padding: 8px;"><code>ΟΝΟΜΑ : STRING;</code></td>
+              </tr>
+          </tbody>
+      </table>
+      
+      <h4>2. Βασικές Εντολές</h4>
+      <ul>
+          <li><strong>Καταχώριση (Ανάθεση):</strong> <code>&lt;μεταβλητή&gt; := &lt;παράσταση&gt;</code>
+              <br>Π.χ. <code>X := (Y + 10) / 4</code></li>
+          <li><strong>Είσοδος (Input):</strong> <code>ΔΙΑΒΑΣΕ (&lt;λίστα μεταβλητών&gt;)</code>
+              <br>Π.χ. <code>ΔΙΑΒΑΣΕ (ΟΝΟΜΑ, ΑΡΙΘΜΟΣ)</code></li>
+          <li><strong>Έξοδος (Output):</strong> <code>ΤΥΠΩΣΕ (&lt;λίστα παραμέτρων&gt;)</code>
+              <br>Π.χ. <code>ΤΥΠΩΣΕ ("ΤΟ ΑΠΟΤΕΛΕΣΜΑ ΕΙΝΑΙ: ", ΑΠ)</code></li>
+      </ul>
+      
+      
+      <h4>3. Τελεστές</h4>
+      <table>
+          <tr><td><strong>Αριθμητικοί</strong></td><td><code>+, -, *, /, DIV (Ακέραια), MOD (Υπόλοιπο)</code></td></tr>
+          <tr><td><strong>Σύγκρισης</strong></td><td><code>=, >, >=, <, <=, <></code></td></tr>
+          <tr><td><strong>Λογικοί</strong></td><td><code>NOT, OR, AND</code></td></tr>
+      </table>
+      
+      <h4>4. Δομές Ελέγχου Ροής (Εντολές)</h4>
+      
+      <h5>Επιλογή (Selection)</h5>
+      <pre><code><strong>ΕΑΝ</strong> &lt;συνθήκη&gt; <strong>ΤΟΤΕ</strong>
+          &lt;εντολές1&gt;
+      <strong>ΑΛΛΙΩΣ</strong>
+          &lt;εντολές2&gt;
+      <strong>ΕΑΝ-ΤΕΛΟΣ</strong></code></pre>
+      
+      <h5>Επανάληψη (Repetition)</h5>
+      
+      <h6>α) ΓΙΑ-ΕΠΑΝΑΛΑΒΕ (For Loop)</h6>
+      <pre><code><strong>ΓΙΑ</strong> &lt;μτ&gt; := &lt;ατ&gt; <strong>ΕΩΣ</strong> &lt;ττ&gt; [<strong>ΜΕ ΒΗΜΑ</strong> &lt;βήμα&gt;] <strong>ΕΠΑΝΑΛΑΒΕ</strong>
+          &lt;εντολές&gt;
+      <strong>ΓΙΑ-ΤΕΛΟΣ</strong></code></pre>
+      
+      <h6>β) ΕΝΟΣΩ-ΕΠΑΝΑΛΑΒΕ (While Loop)</h6>
+      <pre><code><strong>ΕΝΟΣΩ</strong> &lt;συνθήκη&gt; <strong>ΕΠΑΝΑΛΑΒΕ</strong>
+          &lt;εντολές&gt;
+      <strong>ΕΝΟΣΩ-ΤΕΛΟΣ</strong></code></pre>
+      
+      <h6>γ) ΕΠΑΝΑΛΑΒΕ-ΜΕΧΡΙ (Repeat-Until Loop)</h6>
+      <pre><code><strong>ΕΠΑΝΑΛΑΒΕ</strong>
+          &lt;εντολές&gt;
+      <strong>ΜΕΧΡΙ</strong> &lt;συνθήκη&gt;</code></pre>
+    `;
+    
+    // Create and insert the modal once when the script runs
+    const myModal = createModal(modalId, modalTitle, modalContentHTML);
+
+    // Event listener to show the modal when the button is clicked
+    triggerButton.addEventListener('click', () => {
+        myModal.style.display = 'flex'; // Change display to 'flex' to show it (centered)
     });
-  }
+
+    // Event listener to close the modal when the user clicks anywhere outside of the content
+    myModal.addEventListener('click', (event) => {
+        // Check if the click occurred directly on the overlay (not on the content)
+        if (event.target === myModal) {
+            myModal.style.display = 'none';
+        }
+    });
+
+    // Optional: Close modal with the Escape key
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && myModal.style.display === 'flex') {
+            myModal.style.display = 'none';
+        }
+    });
+
 });
