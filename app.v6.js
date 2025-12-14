@@ -665,13 +665,20 @@ document.head.appendChild(style);
     }
   };
 
-  const printToTerminal = (text, type = 'output') => {
+  const printToTerminal = (text, type = 'output', newline = true) => {
+  if (!newline && terminalOutput.lastElementChild && 
+      terminalOutput.lastElementChild.className === `term-${type}`) {
+    // Append to existing line
+    terminalOutput.lastElementChild.textContent += text;
+  } else {
+    // Create new line
     const line = document.createElement('div');
     line.textContent = text;
     line.className = `term-${type}`;
     terminalOutput.appendChild(line);
-    scrollToBottom();
-  };
+  }
+  scrollToBottom();
+};
 
   const scrollToBottom = () => {
     const terminalWindow = document.getElementById('terminal-window');
@@ -720,7 +727,11 @@ document.head.appendChild(style);
       printToTerminal('Running...', 'info');
       const interpreter = new Interpreter();
       interpreter.setInputProvider(inputProvider);
-      interpreter.setOutputCallback((text) => printToTerminal(text, 'output'));
+      interpreter.setOutputCallback((text) => {
+  const hasNewline = text.endsWith('\n');
+  const cleanText = hasNewline ? text.slice(0, -1) : text;
+  printToTerminal(cleanText, 'output', hasNewline);
+});
       const result = await interpreter.interpret(ast);
       if (result.error) {
         printToTerminal(`Error: ${result.error}`, 'error');
