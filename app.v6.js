@@ -343,6 +343,23 @@ document.addEventListener('DOMContentLoaded', () => {
       .join('');
   };
 
+  const updateProgramName = () => {
+  const code = codeEditor.value;
+  const panelHeader = document.querySelector('.editor-container .panel-header span');
+  
+  // Try to extract program name from ΑΛΓΟΡΙΘΜΟΣ declaration
+  const greekMatch = code.match(/ΑΛΓΟΡΙΘΜΟΣ\s+([A-Za-zΑ-Ωα-ω_][A-Za-zΑ-Ωα-ω0-9_]*)/i);
+  const englishMatch = code.match(/ALGORITHM\s+([A-Za-zΑ-Ωα-ω_][A-Za-zΑ-Ωα-ω0-9_]*)/i);
+  
+  const match = greekMatch || englishMatch;
+  
+  if (match && match[1]) {
+    panelHeader.textContent = `Κώδικας Ψευδογλώσσας: ${match[1]}`;
+  } else {
+    panelHeader.textContent = 'Κώδικας Ψευδογλώσσας';
+  }
+};
+
   const syncScroll = () => {
     highlighting.scrollTop = codeEditor.scrollTop;
     highlighting.scrollLeft = codeEditor.scrollLeft;
@@ -352,6 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const onInput = () => {
     updateHighlighting();
     updateLineNumbers();
+    updateProgramName();
   };
 
   codeEditor.addEventListener('scroll', syncScroll);
@@ -642,6 +660,7 @@ document.head.appendChild(style);
     if (EXAMPLES[key]) {
       codeEditor.value = EXAMPLES[key];
       onInput();
+      updateProgramName();
     }
   });
 
