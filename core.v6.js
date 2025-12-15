@@ -1085,41 +1085,66 @@ class Interpreter {
             }
             
             case 'PrintStatement': {
-                let outputText = '';
-                let hasEoln = false;
+                let outputParts = [];
+                let eolnPositions = []; // Track where EOLNs appear
                 
                 for (let i = 0; i < stmt.expressions.length; i++) {
                     const value = await this.evaluate(stmt.expressions[i], env);
                     
                     if (value === '__EOLN__') {
-                        hasEoln = true;
+                        eolnPositions.push(outputParts.length);
                     } else {
-                        if (outputText !== '') {
-                            outputText += ' ';
-                        }
-                        outputText += String(value);
+                        outputParts.push(String(value));
                     }
                 }
                 
-                // Handle output buffer correctly
-                if (this.outputBuffer.length === 0 || this.outputBuffer[this.outputBuffer.length - 1] === null) {
-                    // First print or after EOLN, start new line
+                // Build output with proper spacing and newlines
+                let outputText = '';
+                let callbackText = '';
+                
+                for (let i = 0; i < outputParts.length; i++) {
+                    // Add space between parts (but not if EOLN was between them)
+                    if (i > 0 && !eolnPositions.includes(i)) {
+                        outputText += ' ';
+                        callbackText += ' ';
+                    }
+                    outputText += outputParts[i];
+                    callbackText += outputParts[i];
+                    
+                    // Check if EOLN comes after this part
+                    if (eolnPositions.includes(i + 1)) {
+                        callbackText += '\n';
+                    }
+                }
+                
+                // Handle leading EOLN
+                const hasLeadingEoln = eolnPositions.includes(0);
+                // Handle trailing EOLN
+                const hasTrailingEoln = eolnPositions.includes(outputParts.length);
+                
+                if (hasLeadingEoln) {
+                    callbackText = '\n' + callbackText;
+                }
+                if (hasTrailingEoln) {
+                    callbackText += '\n';
+                }
+                
+                // Handle output buffer
+                if (hasLeadingEoln || this.outputBuffer.length === 0 || this.outputBuffer[this.outputBuffer.length - 1] === null) {
                     this.outputBuffer.push(outputText);
                 } else {
-                    // Append to the current line
                     const lastIdx = this.outputBuffer.length - 1;
                     const currentLine = this.outputBuffer[lastIdx];
                     this.outputBuffer[lastIdx] = currentLine + (currentLine && outputText ? ' ' : '') + outputText;
                 }
                 
-                // If EOLN was present, mark end of line
-                if (hasEoln) {
-                    this.outputBuffer.push(null); // Marker for new line
+                if (hasTrailingEoln) {
+                    this.outputBuffer.push(null);
                 }
                 
                 // Output callback
                 if (this.outputCallback) {
-                    this.outputCallback(outputText + (hasEoln ? '\n' : ''));
+                    this.outputCallback(callbackText);
                 }
                 break;
             }
@@ -1151,8 +1176,8 @@ class Interpreter {
                         input = '-1';
                     }
                     
-                    this.outputBuffer.push(input);
-                    if (this.outputCallback) this.outputCallback(input + '\n');
+                    // Don't add to output buffer or call outputCallback
+                    // The input echo is handled by the terminal UI
                     
                     let value = input;
                     if (!isNaN(input) && input.trim() !== '') {

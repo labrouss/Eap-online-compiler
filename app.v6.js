@@ -665,18 +665,43 @@ document.head.appendChild(style);
     }
   };
 
-  const printToTerminal = (text, type = 'output', newline = true) => {
-  if (!newline && terminalOutput.lastElementChild && 
-      terminalOutput.lastElementChild.className === `term-${type}`) {
-    // Append to existing line
-    terminalOutput.lastElementChild.textContent += text;
-  } else {
-    // Create new line
-    const line = document.createElement('div');
-    line.textContent = text;
-    line.className = `term-${type}`;
-    terminalOutput.appendChild(line);
+  const printToTerminal = (text, type = 'output') => {
+  // Handle text with newlines
+  const lines = text.split('\n');
+  
+  for (let i = 0; i < lines.length; i++) {
+    const lineText = lines[i];
+    
+    if (i > 0) {
+      // This is a continuation after a newline, create new div
+      const line = document.createElement('div');
+      line.textContent = lineText;
+      line.className = `term-${type}`;
+      terminalOutput.appendChild(line);
+    } else {
+      // First line - check if we should append or create new
+      const lastChild = terminalOutput.lastElementChild;
+      if (lastChild && lastChild.className === `term-${type}` && !lastChild.dataset.complete) {
+        // Append to existing line
+        lastChild.textContent += lineText;
+      } else {
+        // Create new line
+        const line = document.createElement('div');
+        line.textContent = lineText;
+        line.className = `term-${type}`;
+        terminalOutput.appendChild(line);
+      }
+    }
+    
+    // Mark the last line as complete if text ends with newline
+    if (i === lines.length - 1 && text.endsWith('\n')) {
+      const lastChild = terminalOutput.lastElementChild;
+      if (lastChild) {
+        lastChild.dataset.complete = 'true';
+      }
+    }
   }
+  
   scrollToBottom();
 };
 
@@ -694,26 +719,28 @@ document.head.appendChild(style);
     terminalInputLine.style.display = 'none';
   };
 
-  const inputProvider = (promptMsg) =>
-    new Promise((resolve) => {
-      printToTerminal(promptMsg, 'info');
-      terminalInputLine.style.display = 'flex';
-      scrollToBottom();
-      terminalInput.value = '';
-      terminalInput.focus();
+  const inputProvider = () =>
+  new Promise((resolve) => {
+    terminalInputLine.style.display = 'flex';
+    scrollToBottom();
+    terminalInput.value = '';
+    terminalInput.focus();
 
-      const handleEnter = (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const val = terminalInput.value;
-          terminalInputLine.style.display = 'none';
-          terminalInput.removeEventListener('keydown', handleEnter);
-          printToTerminal(val, 'input-echo');
-          resolve(val);
-        }
-      };
-      terminalInput.addEventListener('keydown', handleEnter);
-    });
+    const handleEnter = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const val = terminalInput.value;
+        terminalInputLine.style.display = 'none';
+        terminalInput.removeEventListener('keydown', handleEnter);
+        
+        // Echo the input on its own line
+        printToTerminal(val + '\n', 'input-echo');
+        
+        resolve(val);
+      }
+    };
+    terminalInput.addEventListener('keydown', handleEnter);
+  });
 
   runButton.addEventListener('click', async () => {
     const pseudocode = codeEditor.value;
